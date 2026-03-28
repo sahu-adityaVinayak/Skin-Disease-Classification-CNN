@@ -1,0 +1,78 @@
+:root {
+    --primary: #2563eb;
+    --secondary: #64748b;
+    --bg: #f8fafc;
+    --card: #ffffff;
+}
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: var(--bg);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    width: 90%;
+    max-width: 500px;
+    background: var(--card);
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+.header h1 { color: #1e293b; margin-bottom: 0.5rem; }
+.header p { color: var(--secondary); margin-bottom: 2rem; }
+
+#upload-container {
+    border: 2px dashed #cbd5e1;
+    border-radius: 15px;
+    padding: 3rem 1rem;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+#upload-container.dragover { border-color: var(--primary); background: #eff6ff; }
+.upload-icon { font-size: 3.5rem; color: var(--primary); margin-bottom: 1rem; }
+
+#image-preview {
+    max-width: 100%;
+    border-radius: 12px;
+    display: none;
+    margin-top: 1rem;
+}
+
+.btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 2rem;
+}
+
+#loader { display: none; margin-top: 2rem; }
+.spinner {
+    width: 40px; height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    animation: spin 1s linear infinite;
+}
+
+#result-area {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f1f5f9;
+    border-radius: 12px;
+    display: none;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

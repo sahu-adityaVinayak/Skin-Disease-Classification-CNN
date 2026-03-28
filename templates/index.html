@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DermScan AI - Skin Lesion Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-blue-200 min-h-screen font-sans text-gray-800">
+
+<nav class="bg-blue-700 p-4 shadow-lg text-white">
+    <div class="container mx-auto flex justify-between items-center max-w-4xl">
+        <h1 class="text-2xl font-bold tracking-wide"><i class="fas fa-microscope mr-2"></i>DermScan AI</h1>
+        <p class="text-sm font-medium opacity-80 border border-white px-3 py-1 rounded-full">CNN Powered Classification</p>
+    </div>
+</nav>
+
+<div class="container mx-auto mt-10 p-4 max-w-3xl">
+    <div class="glass-panel p-8">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-extrabold text-gray-800 mb-2">Skin Disease Analyzer</h2>
+            <p class="text-gray-500">Upload a dermoscopic image. Our deep learning model will classify it as <b>Benign</b> or <b>Malignant</b>.</p>
+        </div>
+
+        <form action="/predict" method="POST" enctype="multipart/form-data" class="space-y-6" id="uploadForm">
+            <div class="flex items-center justify-center w-full">
+                <label for="dropzone-file" class="flex flex-col items-center justify-center w-full h-64 border-2 border-blue-400 border-dashed rounded-lg cursor-pointer bg-blue-50 hover:bg-blue-100 transition duration-300 shadow-inner">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <i class="fas fa-cloud-upload-alt text-5xl text-blue-500 mb-4"></i>
+                        <p class="mb-2 text-lg text-gray-600"><span class="font-bold text-blue-600">Click to upload</span> your image</p>
+                        <p class="text-sm text-gray-400">Supported formats: JPG, JPEG, PNG</p>
+                    </div>
+                    <input id="dropzone-file" type="file" name="file" class="hidden" accept="image/*" required onchange="previewImage(event)" />
+                </label>
+            </div>
+
+            <div id="imagePreviewContainer" class="hidden text-center bg-gray-50 p-4 rounded-lg border">
+                <p class="text-sm font-bold text-gray-600 mb-2">Selected Image Preview:</p>
+                <img id="imagePreview" src="#" alt="Preview" class="mx-auto h-48 rounded shadow object-cover border-2 border-white">
+            </div>
+
+            <button type="submit" id="analyzeBtn" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-bold rounded-lg text-lg px-5 py-4 text-center transition duration-300 flex justify-center items-center shadow-lg">
+                <i class="fas fa-search-plus mr-2 text-xl"></i> Analyze with AI
+            </button>
+        </form>
+
+        {% if prediction %}
+        <div class="mt-10 border-t-2 border-gray-100 pt-8" id="resultSection">
+            <h3 class="text-2xl font-bold text-center mb-6 text-gray-800"><i class="fas fa-clipboard-check text-green-500 mr-2"></i>Analysis Report</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white p-6 rounded-xl shadow-md border">
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Scanned Image</p>
+                    <img src="{{ user_image }}" alt="Uploaded Image" class="rounded-lg shadow-sm mx-auto border max-h-56 object-cover">
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">AI Diagnosis</p>
+                        {% if 'Malignant' in prediction %}
+                            <p class="text-2xl font-black text-red-600 flex items-center bg-red-50 p-3 rounded-lg border border-red-200">
+                                <i class="fas fa-exclamation-triangle mr-3 text-red-500"></i> {{ prediction }}
+                            </p>
+                        {% else %}
+                            <p class="text-2xl font-black text-green-600 flex items-center bg-green-50 p-3 rounded-lg border border-green-200">
+                                <i class="fas fa-shield-alt mr-3 text-green-500"></i> {{ prediction }}
+                            </p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Confidence Score</p>
+                        <p class="text-4xl font-extrabold text-blue-800">{{ confidence }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            document.getElementById("resultSection").scrollIntoView({ behavior: 'smooth' });
+        </script>
+        {% endif %}
+
+        {% if error %}
+        <div class="mt-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm" role="alert">
+            <p class="font-bold"><i class="fas fa-times-circle mr-2"></i>Error</p>
+            <p>{{ error }}</p>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<script>
+    // Show image preview before submitting
+    function previewImage(event) {
+        var reader = new FileReader();
+        reader.onload = function(){
+            var output = document.getElementById('imagePreview');
+            output.src = reader.result;
+            document.getElementById('imagePreviewContainer').classList.remove('hidden');
+        };
+        reader.readAsDataURL(event.target.files[0]);
+    }
+
+    // Change button state to "Loading" when clicked
+    document.getElementById('uploadForm').onsubmit = function() {
+        var btn = document.getElementById('analyzeBtn');
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Processing Image...';
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+    };
+</script>
+</body>
+</html>
