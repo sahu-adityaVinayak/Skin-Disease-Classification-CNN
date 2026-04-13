@@ -3,6 +3,7 @@ import os
 import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.mobilenet import preprocess_input
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -26,7 +27,42 @@ if not os.path.exists(UPLOAD_FOLDER):
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # ==========================================
-# 2. FLASK ROUTES
+# 2. THE GATEKEEPER: SKIN DETECTION FILTER
+# ==========================================
+def is_valid_skin_image(image_path):
+    """
+    Mathematical Heuristic Filter (Kovac's Rule) to detect if the image has skin tones.
+    Prevents out-of-distribution (OOD) images like screenshots or random objects.
+    """
+    try:
+        img = image.load_img(image_path, target_size=(224, 224))
+        img_array = image.img_to_array(img)
+        
+        # Extract color channels
+        R = img_array[:,:,0]
+        G = img_array[:,:,1]
+        B = img_array[:,:,2]
+        
+        # Scientific RGB rules for human skin
+        rule1 = (R > 95) & (G > 40) & (B > 20)
+        rule2 = (R > G) & (R > B)
+        
+        max_c = np.maximum(np.maximum(R, G), B)
+        min_c = np.minimum(np.minimum(R, G), B)
+        rule3 = (max_c - min_c) > 15
+        
+        # Calculate percentage of skin pixels
+        skin_mask = rule1 & rule2 & rule3
+        skin_percentage = np.mean(skin_mask) * 100
+        
+        # At least 10% of the image must contain skin colors
+        return skin_percentage > 10.0
+    except Exception as e:
+        print(f"Skin Filter Error: {e}")
+        return True # Fallback if error occurs
+
+# ==========================================
+# 3. FLASK ROUTES
 # ==========================================
 @app.route('/', methods=['GET'])
 def index():
@@ -48,11 +84,21 @@ def predict():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         f.save(filepath)
 
-        # Preprocessing (224x224 & Rescaling)
+        # ------------------------------------------
+        # SECURITY CHECK: Pass through Gatekeeper
+        # ------------------------------------------
+        if not is_valid_skin_image(filepath):
+            return render_template('index.html', 
+                                   prediction="Invalid Image (No Skin Detected)", 
+                                   confidence="N/A", 
+                                   user_image=filepath,
+                                   error="Security Alert: Our pre-filter detected that this is not a valid skin image. Please upload a proper dermoscopic photo.")
+
+        # Preprocessing for MobileNet
         img = image.load_img(filepath, target_size=(224, 224))
         img_array = image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array / 255.0  
+        img_array = preprocess_input(img_array)  
 
         # Prediction Logic
         preds = model.predict(img_array)
@@ -60,7 +106,6 @@ def predict():
         final_class = CLASS_LABELS[pred_class_index]
         confidence = round(100 * float(np.max(preds[0])), 2)
 
-        # Hamesha index.html render karega, raw data nahi dega
         return render_template('index.html', 
                                prediction=final_class, 
                                confidence=f"{confidence}%", 
