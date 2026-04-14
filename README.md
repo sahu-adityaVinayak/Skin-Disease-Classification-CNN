@@ -10,7 +10,7 @@ This project leverages Deep Learning and Convolutional Neural Networks (CNNs) to
 
 Developed by a dedicated team of four, this project features a robust machine learning backend seamlessly integrated with a modern, responsive web application (Flask + Tailwind CSS) for real-time medical image analysis.
 
-## 🧠 Model Architecture & Strategy
+## Model Architecture & Strategy
 * **Base Model:** MobileNet (Pre-trained on ImageNet)
 * **Dataset:** HAM10000 (10,015 dermoscopic images)
 * **Master Strategy (Binary Classification):** To overcome the notorious extreme class imbalance of the HAM10000 dataset, the original 7 categories were mapped and balanced into 2 critical real-world classes:
@@ -19,13 +19,13 @@ Developed by a dedicated team of four, this project features a robust machine le
 * **Data Augmentation:** Applied random oversampling and extensive image augmentation (rotation, zooming, flipping) to prevent catastrophic forgetting and overfitting.
 * **Hardware:** Trained efficiently using Kaggle's Dual GPU T4x2 environment.
 
-## 🚀 Key Features
+## Key Features
 * **High Accuracy:** Consistently achieves **~90% accuracy** on validation datasets, outperforming several baseline research papers on the same dataset.
 * **Interactive Frontend:** A sleek, glass-morphism UI built with Tailwind CSS that allows users to upload dermoscopic images and instantly view AI predictions.
 * **Instant Confidence Scoring:** The backend calculates and displays the exact probability/confidence percentage of the diagnosis.
 * **Lightweight & Fast:** The use of MobileNet ensures the `.h5` model file is extremely compact, allowing for rapid predictions without heavy local GPU requirements.
 
-## 📂 Project Structure
+## Project Structure
 DermScan-AI/
 │
 ├── model/
