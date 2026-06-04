@@ -2,10 +2,17 @@ from flask import Flask, render_template, request
 import os
 import urllib.request
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.mobilenet import preprocess_input
 from werkzeug.utils import secure_filename
+
+# ==========================================
+# TensorFlow Memory Optimization (for low-RAM environments)
+# ==========================================
+tf.config.threading.set_inter_op_parallelism_threads(1)
+tf.config.threading.set_intra_op_parallelism_threads(1)
 
 app = Flask(__name__)
 
