@@ -1,5 +1,7 @@
 import streamlit as st
 import numpy as np
+import os
+import urllib.request
 from PIL import Image
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
@@ -8,10 +10,16 @@ from tensorflow.keras.applications.mobilenet import preprocess_input
 # ── Page config ──────────────────────────────────────────────
 st.set_page_config(page_title="Skin Disease Classifier", page_icon="🩺", layout="centered")
 
-# ── Model Loading ─────────────────────────────────────────────
+# ── Model Loading (auto-download from GitHub Release) ─────────
+MODEL_URL = "https://github.com/sahu-adityaVinayak/Skin-Disease-Classification-CNN/releases/download/v1.0/model.h5"
+MODEL_PATH = "model.h5"
+
 @st.cache_resource
 def load_cnn_model():
-    return load_model("model/model.h5")
+    if not os.path.exists(MODEL_PATH):
+        with st.spinner("Downloading model weights... (30 MB, one-time only)"):
+            urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+    return load_model(MODEL_PATH)
 
 model = load_cnn_model()
 
