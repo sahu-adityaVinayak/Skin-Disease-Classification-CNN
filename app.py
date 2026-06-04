@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request
 import os
+import urllib.request
 import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
@@ -9,111 +10,74 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 
 # ==========================================
-# 1. MODEL LOADING 
+# 1. MODEL LOADING (auto-download from GitHub Release)
 # ==========================================
-MODEL_PATH = 'model/model.h5' 
-print("Loading the CNN Model... Please wait.")
+MODEL_URL = 'https://github.com/sahu-adityaVinayak/Skin-Disease-Classification-CNN/releases/download/v1.0/model.h5'
+MODEL_PATH = 'model/model.h5'
+
+os.makedirs('model', exist_ok=True)
+if not os.path.exists(MODEL_PATH):
+    print('Downloading model weights from GitHub Release...')
+    urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+    print('Model downloaded successfully!')
+
+print('Loading the CNN Model... Please wait.')
 model = load_model(MODEL_PATH)
-print("Model loaded successfully!")
+print('Model loaded successfully!')
 
 CLASS_LABELS = {
     0: 'Benign (Safe / Harmless)',
     1: 'Malignant (Dangerous / Consult Doctor)'
 }
 
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 UPLOAD_FOLDER = 'static/uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# ==========================================
-# 2. THE GATEKEEPER: SKIN DETECTION FILTER
-# ==========================================
-def is_valid_skin_image(image_path):
-    """
-    Mathematical Heuristic Filter (Kovac's Rule) to detect if the image has skin tones.
-    Prevents out-of-distribution (OOD) images like screenshots or random objects.
-    """
-    try:
-        img = image.load_img(image_path, target_size=(224, 224))
-        img_array = image.img_to_array(img)
-        
-        # Extract color channels
-        R = img_array[:,:,0]
-        G = img_array[:,:,1]
-        B = img_array[:,:,2]
-        
-        # Scientific RGB rules for human skin
-        rule1 = (R > 95) & (G > 40) & (B > 20)
-        rule2 = (R > G) & (R > B)
-        
-        max_c = np.maximum(np.maximum(R, G), B)
-        min_c = np.minimum(np.minimum(R, G), B)
-        rule3 = (max_c - min_c) > 15
-        
-        # Calculate percentage of skin pixels
-        skin_mask = rule1 & rule2 & rule3
-        skin_percentage = np.mean(skin_mask) * 100
-        
-        # At least 10% of the image must contain skin colors
-        return skin_percentage > 10.0
-    except Exception as e:
-        print(f"Skin Filter Error: {e}")
-        return True # Fallback if error occurs
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# ==========================================
-# 3. FLASK ROUTES
-# ==========================================
-@app.route('/', methods=['GET'])
+def is_valid_skin_image(img_path):
+    import PIL.Image
+    img = PIL.Image.open(img_path).convert('RGB')
+    img_array = np.array(img)
+    R = img_array[:,:,0].astype(float)
+    G = img_array[:,:,1].astype(float)
+    B = img_array[:,:,2].astype(float)
+    skin_mask = (R > 95) & (G > 40) & (B > 20) & (R > G) & (R > B) & (np.abs(R - G) > 15)
+    skin_ratio = np.sum(skin_mask) / (img_array.shape[0] * img_array.shape[1])
+    return skin_ratio > 0.2
+
+@app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
-@app.route('/analyze', methods=['POST'])
 def predict():
-    try:
-        if 'file' not in request.files:
-            return render_template('index.html', error='No file uploaded. Please select an image.')
-            
-        f = request.files['file']
-        if f.filename == '':
-            return render_template('index.html', error='No file selected. Please click on the box to choose an image.')
-
-        # Save Image
-        filename = secure_filename(f.filename)
+    if 'file' not in request.files:
+        return render_template('index.html', error='No file uploaded.')
+    file = request.files['file']
+    if file.filename == '':
+        return render_template('index.html', error='No file selected.')
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        f.save(filepath)
-
-        # ------------------------------------------
-        # SECURITY CHECK: Pass through Gatekeeper
-        # ------------------------------------------
+        file.save(filepath)
         if not is_valid_skin_image(filepath):
-            return render_template('index.html', 
-                                   prediction="Invalid Image (No Skin Detected)", 
-                                   confidence="N/A", 
-                                   user_image=filepath,
-                                   error="Security Alert: Our pre-filter detected that this is not a valid skin image. Please upload a proper dermoscopic photo.")
-
-        # Preprocessing for MobileNet
+            return render_template('result.html', prediction='Invalid Image', confidence=0,
+                                   image_path=filename, error='Not a valid skin image.')
         img = image.load_img(filepath, target_size=(224, 224))
         img_array = image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
-        img_array = preprocess_input(img_array)  
-
-        # Prediction Logic
+        img_array = preprocess_input(img_array)
         preds = model.predict(img_array)
-        pred_class_index = int(np.argmax(preds[0])) 
+        pred_class_index = int(np.argmax(preds[0]))
         final_class = CLASS_LABELS[pred_class_index]
         confidence = round(100 * float(np.max(preds[0])), 2)
-
-        return render_template('index.html', 
-                               prediction=final_class, 
-                               confidence=f"{confidence}%", 
-                               user_image=filepath)
-
-    except Exception as e:
-        print(f"FLASK ERROR: {str(e)}")
-        return render_template('index.html', error='Internal Server Error. Please check terminal for details.')
+        return render_template('result.html', prediction=final_class,
+                               confidence=confidence, image_path=filename)
+    return render_template('index.html', error='Invalid file type.')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
