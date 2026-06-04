@@ -1,4 +1,6 @@
-streamlit
-tensorflow-cpu
+flask
+gunicorn
 numpy
-Pillow
+tensorflow
+pillow
+werkzeug
